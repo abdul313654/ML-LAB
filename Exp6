@@ -1,0 +1,169 @@
+Program:
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (accuracy_score,precision_score,recall_score,f1_score,classification_report,confusion_matrix)
+url = "https://raw.githubusercontent.com/jbrownlee/Datasets/master/pima-indians-diabetes.data.csv"
+columns = ["Pregnancies","Glucose","BloodPressure","SkinThickness","Insulin","BMI","DiabetesPedigreeFunction","Age","Outcome"]
+data = pd.read_csv(url, names=columns)
+print("First 5 rows:")
+print(data.head())
+print("\nDataset shape:")
+print(data.shape)
+X = data.drop(columns="Outcome")
+y = data["Outcome"]
+print("\nFeatures:")
+print(X.columns)
+print("\nTarget:")
+print(y.name)
+zero_columns = ["Glucose","BloodPressure","SkinThickness","Insulin","BMI"]
+for column in zero_columns:
+    X[column] = X[column].replace(0, np.nan)
+    X[column] = X[column].fillna(X[column].median())
+print("\nMissing values after preprocessing:")
+print(X.isnull().sum())
+X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=0.20,random_state=42,stratify=y)
+print("\nTraining data shape:", X_train.shape)
+print("Testing data shape:", X_test.shape)
+model_without_scaling = LogisticRegression(max_iter=1000)
+model_without_scaling.fit(X_train, y_train)
+y_pred_without = model_without_scaling.predict(X_test)
+accuracy_without = accuracy_score(y_test, y_pred_without)
+precision_without = precision_score(y_test, y_pred_without)
+recall_without = recall_score(y_test, y_pred_without)
+f1_without = f1_score(y_test, y_pred_without)
+print("\n========================================")
+print("WITHOUT FEATURE SCALING")
+print("========================================")
+print("Accuracy :", accuracy_without)
+print("Precision:", precision_without)
+print("Recall   :", recall_without)
+print("F1-Score :", f1_without)
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred_without))
+print("Confusion Matrix:")
+print(confusion_matrix(y_test, y_pred_without))
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+model_with_scaling = LogisticRegression(max_iter=1000)
+model_with_scaling.fit(X_train_scaled, y_train)
+y_pred_with = model_with_scaling.predict(X_test_scaled)
+accuracy_with = accuracy_score(y_test, y_pred_with)
+precision_with = precision_score(y_test, y_pred_with)
+recall_with = recall_score(y_test, y_pred_with)
+f1_with = f1_score(y_test, y_pred_with)
+print("\n========================================")
+print("WITH FEATURE SCALING")
+print("========================================")
+print("Accuracy :", accuracy_with)
+print("Precision:", precision_with)
+print("Recall   :", recall_with)
+print("F1-Score :", f1_with)
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred_with))
+print("Confusion Matrix:")
+print(confusion_matrix(y_test, y_pred_with))
+results = pd.DataFrame({"Model": ["Without Scaling","With Scaling"],"Accuracy": [accuracy_without,accuracy_with],"Precision": [precision_without,precision_with],"Recall": [recall_without,recall_with],"F1-Score": [f1_without,f1_with]})
+print("\n========================================")
+print("PERFORMANCE COMPARISON")
+print("========================================")
+print(results.to_string(index=False))
+import matplotlib.pyplot as plt
+metrics = ["Accuracy", "Precision", "Recall", "F1-Score"]
+without_scaling = [accuracy_without,precision_without,recall_without,f1_without]
+with_scaling = [accuracy_with,precision_with,recall_with,f1_with]
+x = np.arange(len(metrics))
+width = 0.35
+plt.figure(figsize=(10, 6))
+plt.bar(x - width/2,without_scaling,width,label="Without Scaling")
+plt.bar(x + width/2,with_scaling,width,label="With Scaling")
+plt.xlabel("Performance Metrics")
+plt.ylabel("Score")
+plt.title("Logistic Regression: With vs Without Feature Scaling")
+plt.xticks(x, metrics)
+plt.ylim(0, 1)
+plt.legend()
+for i, value in enumerate(without_scaling):
+    plt.text(i - width/2,value + 0.02,f"{value:.2f}",ha="center")
+for i, value in enumerate(with_scaling):
+    plt.text(i + width/2,value + 0.02,f"{value:.2f}",ha="center")
+plt.tight_layout()
+plt.show()
+Output:
+First 5 rows:
+   Pregnancies  Glucose  BloodPressure  SkinThickness  Insulin   BMI  \
+0            6      148             72             35        0  33.6   
+1            1       85             66             29        0  26.6   
+2            8      183             64              0        0  23.3   
+3            1       89             66             23       94  28.1   
+4            0      137             40             35      168  43.1   
+   DiabetesPedigreeFunction  Age  Outcome  
+0                     0.627   50        1  
+1                     0.351   31        0  
+2                     0.672   32        1  
+3                     0.167   21        0  
+4                     2.288   33        1  
+Dataset shape:
+(768, 9)
+Features:
+Index(['Pregnancies', 'Glucose', 'BloodPressure', 'SkinThickness', 'Insulin',
+       'BMI', 'DiabetesPedigreeFunction', 'Age'],
+      dtype='object')
+Target:
+Outcome
+Missing values after preprocessing:
+Pregnancies                 0
+Glucose                     0
+BloodPressure               0
+SkinThickness               0
+Insulin                     0
+BMI                         0
+DiabetesPedigreeFunction    0
+Age                         0
+dtype: int64
+Training data shape: (614, 8)
+Testing data shape: (154, 8)
+========================================
+WITHOUT FEATURE SCALING
+========================================
+Accuracy : 0.7012987012987013
+Precision: 0.5869565217391305
+Recall   : 0.5
+F1-Score : 0.54
+Classification Report:
+              precision    recall  f1-score   support
+           0       0.75      0.81      0.78       100
+           1       0.59      0.50      0.54        54
+    accuracy                           0.70       154
+   macro avg       0.67      0.66      0.66       154
+weighted avg       0.69      0.70      0.70       154
+Confusion Matrix:
+[[81 19]
+ [27 27]]
+========================================
+WITH FEATURE SCALING
+========================================
+Accuracy : 0.7077922077922078
+Precision: 0.6
+Recall   : 0.5
+F1-Score : 0.5454545454545454
+Classification Report:
+              precision    recall  f1-score   support
+
+           0       0.75      0.82      0.78       100
+           1       0.60      0.50      0.55        54
+    accuracy                           0.71       154
+   macro avg       0.68      0.66      0.67       154
+weighted avg       0.70      0.71      0.70       154
+Confusion Matrix:
+[[82 18]
+ [27 27]]
+========================================
+PERFORMANCE COMPARISON
+========================================
+          Model  Accuracy  Precision  Recall  F1-Score
+Without Scaling  0.701299   0.586957     0.5  0.540000
+   With Scaling  0.707792   0.600000     0.5  0.545455
