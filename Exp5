@@ -1,0 +1,303 @@
+Program:
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.datasets import fetch_20newsgroups
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.model_selection import train_test_split
+print("Loading 20 Newsgroups dataset...")
+data = fetch_20newsgroups(subset="train",remove=("headers", "footers", "quotes"))
+documents = data.data
+target = data.target
+print("Dataset loaded successfully!")
+print("Number of documents:", len(documents))
+print("Number of categories:", len(data.target_names))
+print("\nCategories:")
+for i, category in enumerate(data.target_names):
+    print(i, ":", category)
+X_train_text, X_test_text = train_test_split(documents,test_size=0.2,random_state=42)
+print("\nTraining documents:", len(X_train_text))
+print("Testing documents:", len(X_test_text))
+vectorizer = CountVectorizer(stop_words="english",max_features=5000,min_df=2)
+X_train = vectorizer.fit_transform(X_train_text)
+vocabulary = vectorizer.get_feature_names_out()
+print("\nVocabulary size:", len(vocabulary))
+word_counts = np.asarray(X_train.sum(axis=0)).flatten()
+total_words = word_counts.sum()
+V = len(vocabulary)
+print("Total word occurrences:", total_words)
+print("Number of vocabulary words:", V)
+mle_probabilities = word_counts / total_words
+print("\n==========================================")
+print("MLE ESTIMATION")
+print("==========================================")
+print("Sum of MLE probabilities:",mle_probabilities.sum())
+def calculate_map(counts, alpha):
+    N = counts.sum()
+    V = len(counts)
+    numerator = counts + alpha - 1
+    denominator = N + V * (alpha - 1)
+    probabilities = numerator / denominator
+    return probabilities
+alpha_01 = 0.1
+alpha_1 = 1
+alpha_10 = 10
+def calculate_map_safe(counts, alpha):
+    N = counts.sum()
+    V = len(counts)
+    probabilities = (counts + alpha) / (N + V * alpha)
+    return probabilities
+map_alpha_01 = calculate_map_safe(word_counts,alpha_01)
+map_alpha_1 = calculate_map_safe(word_counts,alpha_1)
+map_alpha_10 = calculate_map_safe(word_counts,alpha_10)
+print("\n==========================================")
+print("PROBABILITY SUMS")
+print("==========================================")
+print("MLE       :", mle_probabilities.sum())
+print("MAP alpha=0.1 :", map_alpha_01.sum())
+print("MAP alpha=1   :", map_alpha_1.sum())
+print("MAP alpha=10  :", map_alpha_10.sum())
+def top_words(probabilities, vocabulary, n=15):
+    indices = np.argsort(probabilities)[::-1][:n]
+    result = pd.DataFrame({"Word": vocabulary[indices],"Probability": probabilities[indices]})
+    return result
+print("\n==========================================")
+print("TOP WORDS - MLE")
+print("==========================================")
+print(top_words(mle_probabilities,vocabulary).round(6))
+print("\n==========================================")
+print("TOP WORDS - MAP alpha=0.1")
+print("==========================================")
+print(top_words(map_alpha_01,vocabulary).round(6))
+print("\n==========================================")
+print("TOP WORDS - MAP alpha=1")
+print("==========================================")
+print(top_words(map_alpha_1,vocabulary).round(6))
+print("\n==========================================")
+print("TOP WORDS - MAP alpha=10")
+print("==========================================")
+print(top_words(map_alpha_10,vocabulary).round(6))
+top_indices = np.argsort(mle_probabilities)[::-1][:15]
+comparison = pd.DataFrame({"Word": vocabulary[top_indices],"MLE": mle_probabilities[top_indices],"MAP_0.1": map_alpha_01[top_indices],"MAP_1": map_alpha_1[top_indices],"MAP_10": map_alpha_10[top_indices]})
+print("\n==========================================")
+print("PARAMETER COMPARISON")
+print("==========================================")
+print(comparison.round(8))
+difference_01 = np.abs(mle_probabilities - map_alpha_01).mean()
+difference_1 = np.abs(mle_probabilities - map_alpha_1).mean()
+difference_10 = np.abs(mle_probabilities - map_alpha_10).mean()
+print("\n==========================================")
+print("AVERAGE DIFFERENCE FROM MLE")
+print("==========================================")
+print("Alpha = 0.1 :", difference_01)
+print("Alpha = 1   :", difference_1)
+print("Alpha = 10  :", difference_10)
+top_indices = np.argsort(mle_probabilities)[::-1][:15]
+top_word_names = vocabulary[top_indices]
+plt.figure(figsize=(12, 6))
+plt.bar(np.arange(15),mle_probabilities[top_indices],label="MLE")
+plt.bar(np.arange(15),map_alpha_10[top_indices],alpha=0.6,label="MAP (alpha=10)")
+plt.xticks(np.arange(15),top_word_names,rotation=45)
+plt.xlabel("Words")
+plt.ylabel("Probability")
+plt.title("MLE vs MAP Word Probabilities")
+plt.legend()
+plt.tight_layout()
+plt.show()
+alphas = [0.1, 1, 10]
+mean_differences = [difference_01,difference_1,difference_10]
+plt.figure(figsize=(8, 5))
+plt.plot(alphas,mean_differences,marker="o")
+plt.xscale("log")
+plt.xlabel("Dirichlet Prior Alpha")
+plt.ylabel("Mean Absolute Difference from MLE")
+plt.title("Effect of Dirichlet Prior on Parameter Estimates")
+plt.grid(True)
+plt.show()
+plt.figure(figsize=(12, 6))
+plt.plot(mle_probabilities[:100],label="MLE")
+plt.plot(map_alpha_01[:100],label="MAP alpha=0.1")
+plt.plot(map_alpha_1[:100],label="MAP alpha=1")
+plt.plot(map_alpha_10[:100],label="MAP alpha=10")
+plt.xlabel("Vocabulary Index")
+plt.ylabel("Probability")
+plt.title("Effect of Different Dirichlet Priors")
+plt.legend()
+plt.tight_layout()
+plt.show()
+print("\n==========================================")
+print("FINAL INTERPRETATION")
+print("==========================================")
+print("""
+MLE:
+- Estimates word probabilities directly from observed counts.
+- Does not use any prior information.
+- Rare or unseen words can receive probability zero.
+MAP:
+- Combines observed data with prior information.
+- Uses a Dirichlet prior.
+- Gives non-zero probability to words that have very small
+  or zero observed counts.
+Effect of alpha:
+alpha = 0.1:
+- Weak prior.
+- Estimates remain close to the observed data.
+- Gives only a small amount of smoothing.
+alpha = 1:
+- Uniform Dirichlet prior.
+- Equivalent to Laplace/add-one smoothing when using the
+  posterior mean.
+alpha = 10:
+- Stronger prior.
+- Produces more smoothing.
+- Probability estimates become more evenly distributed.
+- Frequent words are shrunk toward a more uniform distribution.
+Conclusion:
+- MLE depends completely on observed data.
+- MAP incorporates prior knowledge.
+- Increasing alpha increases the influence of the prior.
+- A suitable prior can reduce the effect of sparse observations
+  and zero-frequency words.""")
+Output:
+Loading 20 Newsgroups dataset...
+Dataset loaded successfully!
+Number of documents: 11314
+Number of categories: 20
+Categories:
+0 : alt.atheism
+1 : comp.graphics
+2 : comp.os.ms-windows.misc
+3 : comp.sys.ibm.pc.hardware
+4 : comp.sys.mac.hardware
+5 : comp.windows.x
+6 : misc.forsale
+7 : rec.autos
+8 : rec.motorcycles
+9 : rec.sport.baseball
+10 : rec.sport.hockey
+11 : sci.crypt
+12 : sci.electronics
+13 : sci.med
+14 : sci.space
+15 : soc.religion.christian
+16 : talk.politics.guns
+17 : talk.politics.mideast
+18 : talk.politics.misc
+19 : talk.religion.misc
+Training documents: 9051
+Testing documents: 2263
+Vocabulary size: 5000
+Total word occurrences: 708031
+Number of vocabulary words: 5000
+==========================================
+MLE ESTIMATION
+==========================================
+Sum of MLE probabilities: 1.0
+==========================================
+PROBABILITY SUMS
+==========================================
+MLE       : 1.0
+MAP alpha=0.1 : 1.0
+MAP alpha=1   : 1.0
+MAP alpha=10  : 1.0
+==========================================
+TOP WORDS - MLE
+==========================================
+      Word  Probability
+0       ax     0.059164
+1   people     0.004618
+2     like     0.004489
+3      don     0.004366
+4      max     0.004363
+5     just     0.004247
+6     know     0.003915
+7      use     0.003685
+8     time     0.003337
+9    think     0.003322
+10    does     0.003167
+11     new     0.002967
+12    good     0.002830
+13     edu     0.002813
+14     way     0.002343
+==========================================
+TOP WORDS - MAP alpha=0.1
+==========================================
+      Word  Probability
+0       ax     0.059122
+1   people     0.004615
+2     like     0.004485
+3      don     0.004363
+4      max     0.004360
+5     just     0.004244
+6     know     0.003912
+7      use     0.003682
+8     time     0.003335
+9    think     0.003320
+10    does     0.003164
+11     new     0.002965
+12    good     0.002829
+13     edu     0.002812
+14     way     0.002342
+==========================================
+TOP WORDS - MAP alpha=1
+==========================================
+      Word  Probability
+0       ax     0.058751
+1   people     0.004587
+2     like     0.004458
+3      don     0.004336
+4      max     0.004334
+5     just     0.004219
+6     know     0.003889
+7      use     0.003660
+8     time     0.003315
+9    think     0.003300
+10    does     0.003146
+11     new     0.002948
+12    good     0.002812
+13     edu     0.002795
+14     way     0.002328
+==========================================
+TOP WORDS - MAP alpha=10
+==========================================
+      Word  Probability
+0       ax     0.055275
+1   people     0.004327
+2     like     0.004206
+3      don     0.004091
+4      max     0.004088
+5     just     0.003980
+6     know     0.003670
+7      use     0.003455
+8     time     0.003130
+9    think     0.003116
+10    does     0.002971
+11     new     0.002785
+12    good     0.002657
+13     edu     0.002641
+14     way     0.002202
+==========================================
+PARAMETER COMPARISON
+==========================================
+      Word       MLE   MAP_0.1     MAP_1    MAP_10
+0       ax  0.059164  0.059122  0.058751  0.055275
+1   people  0.004618  0.004615  0.004587  0.004327
+2     like  0.004489  0.004485  0.004458  0.004206
+3      don  0.004366  0.004363  0.004336  0.004091
+4      max  0.004363  0.004360  0.004334  0.004088
+5     just  0.004247  0.004244  0.004219  0.003980
+6     know  0.003915  0.003912  0.003889  0.003670
+7      use  0.003685  0.003682  0.003660  0.003455
+8     time  0.003337  0.003335  0.003315  0.003130
+9    think  0.003322  0.003320  0.003300  0.003116
+10    does  0.003167  0.003164  0.003146  0.002971
+11     new  0.002967  0.002965  0.002948  0.002785
+12    good  0.002830  0.002829  0.002812  0.002657
+13     edu  0.002813  0.002812  0.002795  0.002641
+14     way  0.002343  0.002342  0.002328  0.002202
+==========================================
+AVERAGE DIFFERENCE FROM MLE
+==========================================
+Alpha = 0.1 : 1.178859792442324e-07
+Alpha = 1   : 1.1714199068469128e-06
+Alpha = 10  : 1.10187935269001e-05
