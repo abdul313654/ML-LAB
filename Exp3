@@ -1,0 +1,131 @@
+Program:
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.datasets import load_diabetes
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LinearRegression, Ridge, Lasso
+from sklearn.metrics import mean_squared_error, r2_score
+diabetes = load_diabetes(as_frame=True)
+X = diabetes.data
+y = diabetes.target
+print("Dataset Loaded Successfully")
+print("\nFirst 5 rows:")
+print(X.head())
+print("\nDataset Shape:", X.shape)
+X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=0.2,random_state=42)
+print("\nTraining data shape:", X_train.shape)
+print("Testing data shape:", X_test.shape)
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+linear_model = LinearRegression()
+linear_model.fit(X_train_scaled, y_train)
+y_pred_linear = linear_model.predict(X_test_scaled)
+mse_linear = mean_squared_error(y_test, y_pred_linear)
+r2_linear = r2_score(y_test, y_pred_linear)
+ridge = Ridge()
+ridge_params = {'alpha': [0.01, 0.1, 1, 10, 100]}
+ridge_cv = GridSearchCV(ridge,ridge_params,cv=5,scoring='neg_mean_squared_error')
+ridge_cv.fit(X_train_scaled, y_train)
+best_ridge = ridge_cv.best_estimator_
+y_pred_ridge = best_ridge.predict(X_test_scaled)
+mse_ridge = mean_squared_error(y_test, y_pred_ridge)
+r2_ridge = r2_score(y_test, y_pred_ridge)
+lasso = Lasso(max_iter=10000)
+lasso_params = {'alpha': [0.001, 0.01, 0.1, 1, 10, 100]}
+lasso_cv = GridSearchCV(lasso,lasso_params,cv=5,scoring='neg_mean_squared_error')
+lasso_cv.fit(X_train_scaled, y_train)
+best_lasso = lasso_cv.best_estimator_
+y_pred_lasso = best_lasso.predict(X_test_scaled)
+mse_lasso = mean_squared_error(y_test, y_pred_lasso)
+r2_lasso = r2_score(y_test, y_pred_lasso)
+print("\n----------------------------------------")
+print("BEST HYPERPARAMETERS")
+print("----------------------------------------")
+print("Best Ridge alpha:", ridge_cv.best_params_['alpha'])
+print("Best Lasso alpha:", lasso_cv.best_params_['alpha'])
+results = pd.DataFrame({'Model': ['Linear Regression','Ridge Regression','Lasso Regression'],'MSE': [mse_linear, mse_ridge,mse_lasso],'R-squared': [r2_linear, r2_ridge, r2_lasso]})
+print("\n----------------------------------------")
+print("MODEL PERFORMANCE")
+print("----------------------------------------")
+print(results)
+coefficients = pd.DataFrame({'Feature': X.columns,'Linear': linear_model.coef_,'Ridge': best_ridge.coef_,'Lasso': best_lasso.coef_})
+print("\n----------------------------------------")
+print("MODEL COEFFICIENTS")
+print("----------------------------------------")
+print(coefficients)
+plt.figure(figsize=(8, 6))
+plt.scatter(y_test, y_pred_linear, label='Linear Regression')
+plt.scatter(y_test, y_pred_ridge, label='Ridge Regression')
+plt.scatter(y_test, y_pred_lasso, label='Lasso Regression')
+min_value = min(y_test.min(), y_pred_linear.min(),y_pred_ridge.min(), y_pred_lasso.min())
+max_value = max(y_test.max(), y_pred_linear.max(),y_pred_ridge.max(), y_pred_lasso.max())
+plt.plot([min_value, max_value],[min_value, max_value],linestyle='--',label='Ideal Prediction')
+plt.xlabel("Actual Values")
+plt.ylabel("Predicted Values")
+plt.title("Actual vs Predicted Diabetes Progression")
+plt.legend()
+plt.grid(True)
+plt.show()
+plt.figure(figsize=(8, 5))
+plt.bar(results['Model'], results['MSE'])
+plt.xlabel("Model")
+plt.ylabel("Mean Squared Error")
+plt.title("MSE Comparison")
+plt.xticks(rotation=15)
+plt.grid(axis='y')
+plt.show()
+plt.figure(figsize=(8, 5))
+plt.bar(results['Model'], results['R-squared'])
+plt.xlabel("Model")
+plt.ylabel("R-squared")
+plt.title("R-squared Comparison")
+plt.xticks(rotation=15)
+plt.grid(axis='y')
+plt.show()
+Output:
+Dataset Loaded Successfully
+First 5 rows:
+        age       sex       bmi        bp        s1        s2        s3  \
+0  0.038076  0.050680  0.061696  0.021872 -0.044223 -0.034821 -0.043401   
+1 -0.001882 -0.044642 -0.051474 -0.026328 -0.008449 -0.019163  0.074412   
+2  0.085299  0.050680  0.044451 -0.005670 -0.045599 -0.034194 -0.032356   
+3 -0.089063 -0.044642 -0.011595 -0.036656  0.012191  0.024991 -0.036038   
+4  0.005383 -0.044642 -0.036385  0.021872  0.003935  0.015596  0.008142   
+         s4        s5        s6  
+0 -0.002592  0.019907 -0.017646  
+1 -0.039493 -0.068332 -0.092204  
+2 -0.002592  0.002861 -0.025930  
+3  0.034309  0.022688 -0.009362  
+4 -0.002592 -0.031988 -0.046641  
+Dataset Shape: (442, 10)
+Training data shape: (353, 10)
+Testing data shape: (89, 10)
+----------------------------------------
+BEST HYPERPARAMETERS
+----------------------------------------
+Best Ridge alpha: 10
+Best Lasso alpha: 1
+----------------------------------------
+MODEL PERFORMANCE
+----------------------------------------
+               Model          MSE  R-squared
+0  Linear Regression  2900.193628   0.452603
+1   Ridge Regression  2875.778718   0.457211
+2   Lasso Regression  2824.568094   0.466877
+----------------------------------------
+MODEL COEFFICIENTS
+----------------------------------------
+  Feature     Linear      Ridge      Lasso
+0     age   1.753758   1.931332   0.687032
+1     sex -11.511809 -11.028192  -9.297519
+2     bmi  25.607121  25.605561  26.219225
+3      bp  16.828872  16.304191  15.657314
+4      s1 -44.448856 -12.934236  -8.228172
+5      s2  24.640954   0.538173  -0.000000
+6      s3   7.676978  -6.125109  -9.024087
+7      s4  13.138784   8.569484   3.420861
+8      s5  35.161195  22.749308  22.636465
+9      s6   2.351364   2.918146   2.098647
